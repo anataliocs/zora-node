@@ -1,0 +1,27 @@
+#!/bin/bash
+set -eu
+
+# wait until local geth comes up (authed so will return 401 without token)
+until [ "$(curl -s -w '%{http_code}' -o /dev/null "${OP_NODE_L2_ENGINE_RPC//ws/http}")" -eq 401 ]; do
+  echo "waiting for geth to be ready"
+  sleep 5
+done
+
+# public-facing P2P node, advertise public IP address
+PUBLIC_IP=$(curl -s v4.ident.me)
+export OP_NODE_P2P_ADVERTISE_IP=$PUBLIC_IP
+CHAIN_ID=$(jq -r .config.chainId < "$OP_GETH_GENESIS_FILE_PATH")
+
+if [ "${CHAIN_ID}" = "999999999" ]; then
+	export OP_NODE_ROLLUP_CONFIG=""
+  export OP_NODE_NETWORK="zora-sepolia"
+fi
+
+if [ "${CHAIN_ID}" = "58008" ]; then
+	export OP_NODE_ROLLUP_CONFIG=""
+  export OP_NODE_NETWORK="pgn-sepolia"
+fi
+
+echo "$OP_NODE_L2_ENGINE_AUTH_RAW" > "$OP_NODE_L2_ENGINE_AUTH"
+
+exec ./op-node
